@@ -11,7 +11,7 @@ def load_raw_data():
         os.path.dirname(dummy.__file__), '..', 'data', 'competition_data')
 
     filenames = [
-        'train_set', 'test_set', 'tube',
+        'train_set', 'test_set', 'tube', 'specs',
     ]
     raw = {}
     for filename in filenames:
@@ -36,7 +36,22 @@ def get_extended_X(X, raw):
     """
     Return extended dataset by joining with other files.
     """
-    X_ext = pd.merge(X, raw['tube'], on='tube_assembly_id')
+    X_ext = X
+
+    # Join X_ext with tube.csv by tube_assembly_id.
+    X_ext = pd.merge(X_ext, raw['tube'], on='tube_assembly_id')
+
+    # Convert specs.csv to a DataFrame with columns `tube_assembly_id` and
+    # `specs`, where `specs` is a list of strings.
+    specs_df = pd.DataFrame()
+    specs_df['tube_assembly_id'] = raw['specs']['tube_assembly_id']
+    tmp_df = raw['specs'].where(pd.notnull(raw['specs']), None)
+    specs = [filter(None, row[1:]) for row in tmp_df.values]
+    specs_df['specs'] = specs
+
+    # Join X_ext with specs_df on tube_assembly_id.
+    X_ext = pd.merge(X_ext, specs_df, on='tube_assembly_id')
+
     return X_ext
 
 

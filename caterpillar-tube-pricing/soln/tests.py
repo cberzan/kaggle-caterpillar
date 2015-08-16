@@ -39,6 +39,8 @@ class TestDataset(object):
     def test_csv_merge(self):
         X_train, y_train, X_test, y_test = get_dev_split(raw)
         X_train_ext = get_extended_X(X_train, raw)
+
+        # Check join with tube.csv.
         taid = 'TA-00034'
         df = X_train_ext[X_train['tube_assembly_id'] == taid]
         ref_diams = raw['tube'][raw['tube']['tube_assembly_id'] == taid]
@@ -47,3 +49,11 @@ class TestDataset(object):
         nose.tools.assert_equal(
             df['diameter'].unique()[0],
             ref_diams['diameter'].values[0])
+
+        # Check join with specs.csv.
+        taid = 'TA-00207'
+        ref_specs = ['SP-0063', 'SP-0070', 'SP-0080']
+        df = X_train_ext[X_train['tube_assembly_id'] == taid]
+        assert len(df['specs']) >= 1
+        for val in df['specs']:
+            nose.tools.assert_equal(val, ref_specs)
