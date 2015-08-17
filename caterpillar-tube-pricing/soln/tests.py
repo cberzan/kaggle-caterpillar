@@ -1,8 +1,10 @@
 from soln.dataset import get_dev_split
 from soln.dataset import get_extended_X
 from soln.dataset import load_raw_data
+from soln.featurizer import CustomFeaturizer
 
 import nose
+import numpy as np
 import sys
 
 
@@ -69,3 +71,20 @@ class TestDataset(object):
         assert len(df['components']) >= 1
         for val in df['components']:
             nose.tools.assert_equal(val, ref_components)
+
+
+class TestFeaturizer(object):
+    def test_custom_features(self):
+        X_train, y_train, X_test, y_test = get_dev_split(raw)
+        X_train_ext = get_extended_X(X_train, raw)
+        featurizer = CustomFeaturizer()
+        featurizer.fit(X_train_ext)
+        X_train_feats = featurizer.transform(X_train_ext)
+
+        # Check adj_quantity feature.
+        taid = 'TA-01916'
+        df = X_train_feats[X_train['tube_assembly_id'] == taid]
+        nose.tools.assert_equal(len(df), 2)
+        nose.tools.assert_true(np.all(df.min_order_quantity == [1, 4]))
+        nose.tools.assert_true(np.all(df.quantity == [1, 1]))
+        nose.tools.assert_true(np.all(df.adj_quantity == [1, 4]))

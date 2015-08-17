@@ -215,6 +215,10 @@ class CustomFeaturizer(object):
         for col, true_val in bin_cols.iteritems():
             result[col] = (dataset[col] == true_val)
 
+        # Add feature combining min_order_quantity and quantity.
+        result['adj_quantity'] = result[
+            ['min_order_quantity', 'quantity']].max(axis=1)
+
         # TODO: Columns not used:
         #
         # From train_set.csv:
