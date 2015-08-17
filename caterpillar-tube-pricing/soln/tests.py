@@ -57,3 +57,15 @@ class TestDataset(object):
         assert len(df['specs']) >= 1
         for val in df['specs']:
             nose.tools.assert_equal(val, ref_specs)
+
+        # Check join with bill_of_materials.csv.
+        taid = 'TA-00249'
+        ref_components = [
+            ('C-1536', 2.0),
+            ('C-1642', 1.0),
+            ('C-1649', 1.0),
+        ]
+        df = X_train_ext[X_train['tube_assembly_id'] == taid]
+        assert len(df['components']) >= 1
+        for val in df['components']:
+            nose.tools.assert_equal(val, ref_components)

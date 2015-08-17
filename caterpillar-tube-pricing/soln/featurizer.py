@@ -107,6 +107,61 @@ class ListFeaturizer(object):
             feats, index=dataset.index, columns=feat_names)
 
 
+class CountListFeaturizer(object):
+    """
+    Featurizer for features that are lists of (str, count) tuples.
+
+    Each str become its own real-valued feature, with the count as the value of
+    that feature.
+    """
+    # FIXME: This is very similar to OneHotFeaturizer; make DRY.
+
+    def __init__(self, col_name, min_seen_count=10):
+        self.col_name = col_name
+        self._counter = None
+        self.val_to_int = None
+        self.int_to_val = None
+        self.min_seen_count = min_seen_count
+
+    def fit(self, dataset):
+        """
+        Build the featurizer using the given dataset (DataFrame).
+        """
+        # Build a map from string feature values to unique integers.
+        # Assumes 'other' does not occur as a value.
+        self.val_to_int = {'other': 0}
+        self.int_to_val = ['other']
+        next_index = 1
+        self._counter = Counter()
+        for list_of_tuples in dataset[self.col_name]:
+            self._counter.update(val for val, count in list_of_tuples)
+        for val, count in self._counter.iteritems():
+            assert val not in self.val_to_int
+            if count >= self.min_seen_count:
+                self.val_to_int[val] = next_index
+                self.int_to_val.append(val)
+                next_index += 1
+        assert len(self.val_to_int) == next_index
+        assert len(self.int_to_val) == next_index
+
+    def transform(self, dataset):
+        """
+        Featurize the given dataset (DataFrame) and return result as DataFrame.
+        """
+        feats = np.zeros((len(dataset), len(self.val_to_int)))
+        for i, list_of_tuples in enumerate(dataset[self.col_name]):
+            for val, count in list_of_tuples:
+                if val in self.val_to_int:
+                    feats[i][self.val_to_int[val]] = count
+                else:
+                    feats[i][self.val_to_int['other']] += count
+        feat_names = [
+            '{} {}'.format(self.col_name, val)
+            for val in self.int_to_val]
+        return pd.DataFrame(
+            feats, index=dataset.index, columns=feat_names)
+
+
 class CustomFeaturizer(object):
     """
     Combined featurizer for all features.
@@ -116,6 +171,7 @@ class CustomFeaturizer(object):
             OneHotFeaturizer('supplier'),
             OneHotFeaturizer('material_id'),
             ListFeaturizer('specs'),
+            CountListFeaturizer('components'),
         ]
 
     def fit(self, dataset):

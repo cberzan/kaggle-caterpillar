@@ -11,7 +11,7 @@ def load_raw_data():
         os.path.dirname(dummy.__file__), '..', 'data', 'competition_data')
 
     filenames = [
-        'train_set', 'test_set', 'tube', 'specs',
+        'train_set', 'test_set', 'tube', 'specs', 'bill_of_materials',
     ]
     raw = {}
     for filename in filenames:
@@ -51,6 +51,20 @@ def get_extended_X(X, raw):
 
     # Join X_ext with specs_df on tube_assembly_id.
     X_ext = pd.merge(X_ext, specs_df, on='tube_assembly_id')
+
+    # Convert bill_of_materials.csv to a DataFrame with columns
+    # `tube_assembly_id` and `components`, where `components` is a list of
+    # (component_str, quantity) tuples.
+    bill = raw['bill_of_materials']
+    components_df = pd.DataFrame()
+    components_df['tube_assembly_id'] = bill['tube_assembly_id']
+    tmp_df = bill.where(pd.notnull(bill), None)
+    rows = [filter(None, row[1:]) for row in tmp_df.values]
+    components = [list(zip(row[0::2], row[1::2])) for row in rows]
+    components_df['components'] = components
+
+    # Join X_ext with components_df on tube_assembly_id.
+    X_ext = pd.merge(X_ext, components_df, on='tube_assembly_id')
 
     return X_ext
 
