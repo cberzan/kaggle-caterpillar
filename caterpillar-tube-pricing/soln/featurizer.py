@@ -223,8 +223,12 @@ class CustomFeaturizer(object):
         # From tube.csv:
         # - end_a
         # - end_x
+        # (note that these two columns have missing value 'NONE' and '9999',
+        # which pandas by default treats as two different string values)
 
         # TODO:
+        # - bend_radius from tube.csv has missing values (9999) for 8 rows;
+        #   currently that gets treated as the scalar 9999, which is wrong.
         # - material_id from tube.csv has missing values; currently
         #   OneHotFeaturizer treats missing values as a value `nan` that is
         #   different from 'other' and all the other values. Should we just use
