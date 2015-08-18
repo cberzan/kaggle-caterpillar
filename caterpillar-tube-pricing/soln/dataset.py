@@ -225,3 +225,139 @@ def get_augmented_train_and_test_set():
     aug_test_set = get_augmented_dataset(
         raw['train_set'], tube_df, specs_df, components_df)
     return aug_train_set, aug_test_set
+
+
+def generate_xv_splits(aug_train_set, num_folds=10):
+    """
+    Yield (X_train, y_train, X_test, y_test) tuples of DataFrames.
+    """
+    for fold in xrange(num_folds):
+        Xy_train = aug_train_set[aug_train_set.dev_fold != fold]
+        Xy_train = Xy_train.reset_index(drop=True)
+        Xy_train.pop('dev_fold')
+        X_train = Xy_train
+        y_train = X_train.pop('log_cost')
+
+        Xy_test = aug_train_set[aug_train_set.dev_fold == fold]
+        Xy_test = Xy_test.reset_index(drop=True)
+        Xy_test.pop('dev_fold')
+        X_test = Xy_test
+        y_test = X_test.pop('log_cost')
+
+        yield X_train, y_train, X_test, y_test
+
+
+class CategoricalToNumeric(object):
+    """
+    Convert categorical or list features into numeric features.
+
+    A categorical feature taking values like 'a', 'b', 'c' is converted into
+    binary features ['col_name a', 'col_name b', 'col_name c'].
+
+    A list feature taking values like ['a', 'a'], ['a', b'], ['c'] is converted
+    into numeric features ['col_name a', 'col_name b', 'col_name c'],
+    representing how many times each value appeared.
+    """
+
+    def __init__(self, col_name, multiple=False, min_seen_count=10):
+        self.col_name = col_name
+        self.multiple = multiple
+        self._counter = None
+        self.val_to_int = None
+        self.int_to_val = None
+        self.min_seen_count = min_seen_count
+
+    def fit(self, dataset):
+        # Build a map from string feature values to unique integers.
+        # Assumes 'other' does not occur as a value.
+        self.val_to_int = {'other': 0}
+        self.int_to_val = ['other']
+        next_index = 1
+        self.build_counter(dataset[self.col_name])
+        for val, count in self._counter.iteritems():
+            assert val not in self.val_to_int
+            if count >= self.min_seen_count:
+                self.val_to_int[val] = next_index
+                self.int_to_val.append(val)
+                next_index += 1
+        assert len(self.val_to_int) == next_index
+        assert len(self.int_to_val) == next_index
+
+    def build_counter(self, series):
+        self._counter = Counter()
+        for val in series:
+            if self.multiple:
+                # val is a list of categorical values.
+                self._counter.update(val)
+            else:
+                # val is a single categorical value.
+                self._counter[val] += 1
+
+    def transform(self, dataset):
+        feats = np.zeros((len(dataset), len(self.val_to_int)))
+        for i, orig_val in enumerate(dataset[self.col_name]):
+            if self.multiple:
+                # orig_val is a list of categorical values.
+                list_of_vals = orig_val
+            else:
+                # orig_val is a single categorical value.
+                list_of_vals = [orig_val]
+            for val in list_of_vals:
+                if val in self.val_to_int:
+                    feats[i, self.val_to_int[val]] += 1
+                else:
+                    feats[i, self.val_to_int['other']] += 1
+        feat_names = [
+            '{} {}'.format(self.col_name, val)
+            for val in self.int_to_val]
+        return pd.DataFrame(
+            feats, index=dataset.index, columns=feat_names)
+
+
+class AllCategoricalsFeaturizer(object):
+    """
+    Convert all categoricals to numeric features.
+
+    Output is a DataFrame.
+    """
+    def __init__(self):
+        self.featurizers = [
+            CategoricalToNumeric('supplier'),
+            CategoricalToNumeric('material_id'),
+            CategoricalToNumeric('end_a'),
+            CategoricalToNumeric('end_x'),
+            CategoricalToNumeric('specs', multiple=True),
+            CategoricalToNumeric('components', multiple=True),
+            CategoricalToNumeric('bracketing_pattern'),
+        ]
+
+    def fit(self, dataset):
+        for featurizer in self.featurizers:
+            featurizer.fit(dataset)
+
+    def transform(self, dataset, include_taid=False):
+        result = dataset.copy(deep=False)
+        dfs = [result]
+        for featurizer in self.featurizers:
+            dfs.append(featurizer.transform(dataset))
+            result.pop(featurizer.col_name)
+        return pd.concat(dfs, axis=1)
+
+
+class ToNumpyFeaturizer(object):
+    """
+    Remove non-numeric features and convert DataFrame to numpy array.
+
+    Output is a numpy array.
+    """
+    def __init__(self):
+        pass
+
+    def fit(self, dataset):
+        pass
+
+    def transform(self, dataset, include_taid=False):
+        result = dataset.copy(deep=False)
+        result.pop('tube_assembly_id')
+        result.pop('quote_date')
+        return result.astype(np.float).values
