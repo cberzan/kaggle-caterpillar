@@ -320,7 +320,8 @@ class AllCategoricalsFeaturizer(object):
 
     Output is a DataFrame.
     """
-    def __init__(self):
+    def __init__(self, keep_orig_feats=False):
+        self.keep_orig_feats = keep_orig_feats
         self.featurizers = [
             CategoricalToNumeric('supplier'),
             CategoricalToNumeric('material_id'),
@@ -330,6 +331,10 @@ class AllCategoricalsFeaturizer(object):
             CategoricalToNumeric('components', multiple=True),
             CategoricalToNumeric('bracketing_pattern'),
         ]
+        self.features_to_remove = [
+            'tube_assembly_id',
+            'quote_date',
+        ]
 
     def fit(self, dataset):
         for featurizer in self.featurizers:
@@ -337,27 +342,30 @@ class AllCategoricalsFeaturizer(object):
 
     def transform(self, dataset, include_taid=False):
         result = dataset.copy(deep=False)
+        if not self.keep_orig_feats:
+            for col_name in self.features_to_remove:
+                result.pop(col_name)
+
         dfs = [result]
         for featurizer in self.featurizers:
             dfs.append(featurizer.transform(dataset))
-            result.pop(featurizer.col_name)
+            if not self.keep_orig_feats:
+                result.pop(featurizer.col_name)
+
         return pd.concat(dfs, axis=1)
 
 
-class ToNumpyFeaturizer(object):
+def featurize_and_to_numpy(featurizer, X_train, y_train, X_test, y_test):
     """
-    Remove non-numeric features and convert DataFrame to numpy array.
-
-    Output is a numpy array.
+    Featurize the given datasets, and convert to numpy arrays.
     """
-    def __init__(self):
-        pass
+    featurizer.fit(X_train)
+    X_train_feats = featurizer.transform(X_train)
+    X_test_feats = featurizer.transform(X_test)
 
-    def fit(self, dataset):
-        pass
+    X_train_np = X_train_feats.astype(np.float).values
+    y_train_np = y_train.values
+    X_test_np = X_test_feats.astype(np.float).values
+    y_test_np = y_test.values
 
-    def transform(self, dataset, include_taid=False):
-        result = dataset.copy(deep=False)
-        result.pop('tube_assembly_id')
-        result.pop('quote_date')
-        return result.astype(np.float).values
+    return X_train_np, y_train_np, X_test_np, y_test_np
