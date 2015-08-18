@@ -163,6 +163,63 @@ class CountListFeaturizer(object):
             feats, index=dataset.index, columns=feat_names)
 
 
+class BracketingPatternFeaturizer(object):
+    """
+    Feature recording what brackets occur for a given tube_assembly_id.
+    """
+    # FIXME:
+    # - do min_seen_count in postprocessing, making all the featurizers DRY
+    # - decouple building of list-valued features from one-hot- or
+    #   count-mapping those features...
+
+    def __init__(self, min_seen_count=10):
+        self._counter = None
+        self.val_to_int = None
+        self.int_to_val = None
+        self.min_seen_count = min_seen_count
+
+    def fit(self, dataset):
+        grouped = dataset.groupby(
+            ['tube_assembly_id', 'supplier', 'quote_date'])
+        self._counter = Counter()
+        for t_s_q, indices in grouped.groups.iteritems():
+            if len(indices) > 1:
+                # FIXME: use adj_quantity instead of quantity here.
+                bracket = tuple(sorted(dataset.quantity[indices].values))
+                self._counter[bracket] += 1
+
+        self.val_to_int = {'other': 0}
+        self.int_to_val = ['other']
+        next_index = 1
+        for val, count in self._counter.iteritems():
+            assert val not in self.val_to_int
+            if count >= self.min_seen_count:
+                self.val_to_int[val] = next_index
+                self.int_to_val.append(val)
+                next_index += 1
+        assert len(self.val_to_int) == next_index
+        assert len(self.int_to_val) == next_index
+
+    def transform(self, dataset):
+        feats = np.zeros(
+            (len(dataset), len(self.val_to_int)), dtype=bool)
+        grouped = dataset.groupby(
+            ['tube_assembly_id', 'supplier', 'quote_date'])
+        for t_s_q, indices in grouped.groups.iteritems():
+            if len(indices) > 1:
+                # FIXME: use adj_quantity instead of quantity here.
+                bracket = tuple(sorted(dataset.quantity[indices].values))
+                if bracket in self.val_to_int:
+                    feats[indices, self.val_to_int[bracket]] = True
+                else:
+                    feats[indices, self.val_to_int['other']] = True
+        feat_names = [
+            'bracketing {}'.format(val)
+            for val in self.int_to_val]
+        return pd.DataFrame(
+            feats, index=dataset.index, columns=feat_names)
+
+
 class CustomFeaturizer(object):
     """
     Combined featurizer for all features.
@@ -175,6 +232,7 @@ class CustomFeaturizer(object):
             OneHotFeaturizer('end_x'),
             ListFeaturizer('specs'),
             CountListFeaturizer('components'),
+            BracketingPatternFeaturizer(),
         ]
 
     def fit(self, dataset):
@@ -225,11 +283,11 @@ class CustomFeaturizer(object):
             pd.to_datetime(dataset['quote_date']) - datetime(1900, 1, 1)
         ).astype('timedelta64[D]')
 
-        # Add feature combining min_order_quantity and quantity.
+        # Add adj_quantity feature (combining min_order_quantity and quantity).
         result['adj_quantity'] = result[
             ['min_order_quantity', 'quantity']].max(axis=1)
 
-        # Add feature for whether there really is bracket pricing.
+        # Add adj_bracketing feature (whether there really is bracket pricing).
         adj_bracketing = np.zeros(len(dataset), dtype=np.bool)
         grouped = dataset.groupby(
             ['tube_assembly_id', 'supplier', 'quote_date'])
