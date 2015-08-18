@@ -66,8 +66,30 @@ def generate_xv_splits(raw):
         yield X_train, y_train, X_test, y_test
 
 
-def get_dev_split(raw):
-    return next(generate_xv_splits(raw))
+def generate_xv_splits_np(raw, featurizer):
+    """
+    Split using `generate_xv_splits`, then featurize and convert to ndarrays.
+
+    Yields (X_train_feats, X_train_np, y_train_np, X_test_np, y_test_np)
+    tuples, where X_train_feats is a DataFrame and the others are ndarrays.
+    """
+    for X_train, y_train, X_test, y_test in generate_xv_splits(raw):
+        # FIXME: stop duplicating work here.
+        X_train_ext = get_extended_X(X_train, raw)
+        X_test_ext = get_extended_X(X_test, raw)
+        y_train_log = log_transform_y(y_train)
+        y_test_log = log_transform_y(y_test)
+
+        featurizer.fit(X_train_ext)
+        X_train_feats = featurizer.transform(X_train_ext)
+        X_test_feats = featurizer.transform(X_test_ext)
+
+        X_train_np = X_train_feats.astype(np.float).values
+        X_test_np = X_test_feats.astype(np.float).values
+        y_train_np = y_train_log.values
+        y_test_np = y_test_log.values
+
+        yield X_train_feats, X_train_np, y_train_np, X_test_np, y_test_np
 
 
 def get_extended_X(X, raw):

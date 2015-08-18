@@ -2,6 +2,8 @@ from collections import Counter
 from collections import defaultdict
 from sklearn import tree
 from sklearn.externals.six import StringIO
+from sklearn.metrics import mean_squared_error
+import numpy as np
 import pydot
 
 
@@ -41,3 +43,17 @@ def print_brackets(df, count):
         cum_frac += frac
         print "brackets {}: count {} frac {} cum_frac {}".format(
             brackets, count, frac, cum_frac)
+
+
+def eval_regressor(regressor, X_train_np, y_train_np, X_test_np, y_test_np):
+    """
+    Evaluate regressor and return (train_rmsle, test_rmsle).
+
+    Assumes the X were featurized and the y were log-transformed.
+    """
+    regressor.fit(X_train_np, y_train_np)
+    y_train_pred = regressor.predict(X_train_np)
+    train_rmsle = np.sqrt(mean_squared_error(y_train_np, y_train_pred))
+    y_test_pred = regressor.predict(X_test_np)
+    test_rmsle = np.sqrt(mean_squared_error(y_test_np, y_test_pred))
+    return train_rmsle, test_rmsle
