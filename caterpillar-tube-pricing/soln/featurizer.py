@@ -178,7 +178,7 @@ class CustomFeaturizer(object):
         for featurizer in self.featurizers:
             featurizer.fit(dataset)
 
-    def transform(self, dataset):
+    def transform(self, dataset, include_taid=False):
         # Accumulate columns from all the featurizers.
         if self.featurizers:
             dfs = [
@@ -193,6 +193,8 @@ class CustomFeaturizer(object):
             'annual_usage', 'min_order_quantity', 'quantity', 'diameter',
             'length', 'num_bends', 'bend_radius', 'num_boss', 'num_bracket',
         ]
+        if include_taid:
+            orig_cols.append('tube_assembly_id')
         for col in orig_cols:
             result[col] = dataset[col]
 
@@ -218,6 +220,16 @@ class CustomFeaturizer(object):
         # Add feature combining min_order_quantity and quantity.
         result['adj_quantity'] = result[
             ['min_order_quantity', 'quantity']].max(axis=1)
+
+        # Add feature for whether there really is bracket pricing.
+        adj_bracketing = np.zeros(len(dataset), dtype=np.bool)
+        grouped = dataset.groupby(
+            ['tube_assembly_id', 'supplier', 'quote_date'])
+        for t_s_q, indices in grouped.groups.iteritems():
+            if len(indices) > 1:
+                adj_bracketing[indices] = True
+        assert np.all(result.index == dataset.index)
+        result['adj_bracketing'] = adj_bracketing
 
         # TODO: Columns not used:
         #
