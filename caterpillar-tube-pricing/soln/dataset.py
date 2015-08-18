@@ -21,13 +21,16 @@ def load_raw_data():
     return raw
 
 
-def get_dev_split(raw):
-    Xy_all = raw['train_set'].copy()
+def generate_xv_splits(raw):
+    """
+    Stratified 10-fold cross-validation iterator.
 
+    Yields (X_train, y_train, X_test, y_test) tuples of DataFrames.
+    """
     # Collect the list of unique `tube_assembly_id`s, shuffle them, and split
     # them into 90% train / 10% test, stratifying on supplier. If the same
     # tube_assembly_id has multiple suppliers, one is picked arbitrarily.
-    taids = Xy_all[['tube_assembly_id', 'supplier']].copy()
+    taids = raw['train_set'][['tube_assembly_id', 'supplier']].copy()
     taids.drop_duplicates(
         subset='tube_assembly_id', take_last=True, inplace=True)
     taids = taids.reset_index(drop=True)
@@ -35,31 +38,36 @@ def get_dev_split(raw):
     taids['pos'] = np.random.permutation(len(taids))
     taids.sort('pos', inplace=True)
     taids.pop('pos')
-    y = taids.supplier.values
-    counter = Counter(y)
-    for i, val in enumerate(y):
+    suppliers = taids.pop('supplier').values
+    counter = Counter(suppliers)
+    for i, val in enumerate(suppliers):
         if counter[val] < 10:
-            y[i] = "other"
-    skf = StratifiedKFold(y, n_folds=10)
+            suppliers[i] = "other"
+
+    # Stratified split.
+    skf = StratifiedKFold(suppliers, n_folds=10, random_state=666)
     for train_is, test_is in skf:
-        break
-    taids['test_set'] = taids.index.isin(test_is)
+        taids['test_set'] = taids.index.isin(test_is)
 
-    # Split Xy_all according to taids['test_set'].
-    taids.pop('supplier')
-    Xy_all = pd.merge(Xy_all, taids, on='tube_assembly_id')
-    Xy_train = Xy_all[Xy_all['test_set'] == False]
-    Xy_train = Xy_train.reset_index(drop=True)
-    Xy_train.pop('test_set')
-    X_train = Xy_train
-    y_train = X_train.pop('cost')
-    Xy_test = Xy_all[Xy_all['test_set'] == True]
-    Xy_test = Xy_test.reset_index(drop=True)
-    Xy_test.pop('test_set')
-    X_test = Xy_test
-    y_test = X_test.pop('cost')
+        # Split Xy_all according to taids['test_set'].
+        Xy_all = raw['train_set'].copy()
+        Xy_all = pd.merge(Xy_all, taids, on='tube_assembly_id')
+        Xy_train = Xy_all[Xy_all['test_set'] == False]
+        Xy_train = Xy_train.reset_index(drop=True)
+        Xy_train.pop('test_set')
+        X_train = Xy_train
+        y_train = X_train.pop('cost')
+        Xy_test = Xy_all[Xy_all['test_set'] == True]
+        Xy_test = Xy_test.reset_index(drop=True)
+        Xy_test.pop('test_set')
+        X_test = Xy_test
+        y_test = X_test.pop('cost')
 
-    return X_train, y_train, X_test, y_test
+        yield X_train, y_train, X_test, y_test
+
+
+def get_dev_split(raw):
+    return next(generate_xv_splits(raw))
 
 
 def get_extended_X(X, raw):
