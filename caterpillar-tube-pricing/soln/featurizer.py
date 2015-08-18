@@ -248,5 +248,12 @@ class CustomFeaturizer(object):
         #   'other' for missing values?
         # - end_a and end_x from tube_csv have missing value 'NONE' and '9999',
         #   which pandas by default treats as two different string values)
+        # - handle duplicate specs (e.g. SP-0007); currently ListFeaturizer
+        #   just treats them as a single one.
+        # - add an `ends` list-valued feature, e.g. [EF-003, EF-006], so that
+        #   the info about both ends is merged into a single feature, which
+        #   gets converted to num_EF_003, num_EF_006, etc. numerical features.
+        # - similarly, add end_1x_count and end_2x count features, treating the
+        #   two ends as interchangeable.
 
         return result
