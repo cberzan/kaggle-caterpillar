@@ -1,4 +1,5 @@
 from collections import Counter
+from datetime import datetime
 import numpy as np
 import pandas as pd
 
@@ -217,6 +218,11 @@ class CustomFeaturizer(object):
         for col, true_val in bin_cols.iteritems():
             result[col] = (dataset[col] == true_val)
 
+        # Add quote_date feature (convert date to days since 1900-01-01).
+        result['quote_date_days_since_1900'] = (
+            pd.to_datetime(dataset['quote_date']) - datetime(1900, 1, 1)
+        ).astype('timedelta64[D]')
+
         # Add feature combining min_order_quantity and quantity.
         result['adj_quantity'] = result[
             ['min_order_quantity', 'quantity']].max(axis=1)
@@ -232,9 +238,6 @@ class CustomFeaturizer(object):
         result['adj_bracketing'] = adj_bracketing
 
         # TODO: Columns not used:
-        #
-        # From train_set.csv:
-        # - quote_date
         #
         # From tube.csv:
         # - end_a
