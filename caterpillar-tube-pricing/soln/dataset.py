@@ -366,6 +366,9 @@ def featurize_and_to_numpy(featurizer, X_train, y_train, X_test, y_test):
     X_train_np = X_train_feats.astype(np.float).values
     y_train_np = y_train.values
     X_test_np = X_test_feats.astype(np.float).values
-    y_test_np = y_test.values
+    if y_test is None:
+        y_test_np = None
+    else:
+        y_test_np = y_test.values
 
     return X_train_np, y_train_np, X_test_np, y_test_np
