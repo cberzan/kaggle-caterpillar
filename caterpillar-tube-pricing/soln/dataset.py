@@ -190,8 +190,8 @@ def add_dev_fold_column(aug_train_set, num_folds=10):
     taids = taids.reset_index(drop=True)
     np.random.seed(666)
     taids['pos'] = np.random.permutation(len(taids))
-    taids.sort('pos', inplace=True)
-    taids.pop('pos')
+    taids.set_index('pos', inplace=True)
+    taids.sort_index(inplace=True)
 
     # Replace rare suppliers with "other".
     suppliers = taids.pop('supplier').values
