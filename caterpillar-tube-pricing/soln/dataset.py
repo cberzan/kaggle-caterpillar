@@ -172,6 +172,7 @@ def get_augmented_dataset(orig_set, tube_df, specs_df, components_df):
     # - similarly, add end_1x_count and end_2x count features, treating the
     #   two ends as interchangeable.
     # - features like num_sleeve, etc. based on component types
+    # - end-form "is forming" features from tube_end_form.csv
 
     return aug_set
 
@@ -222,8 +223,9 @@ def get_augmented_train_and_test_set():
     aug_train_set = get_augmented_dataset(
         raw['train_set'], tube_df, specs_df, components_df)
     aug_train_set = add_dev_fold_column(aug_train_set)
+    raw['test_set'].pop('id')
     aug_test_set = get_augmented_dataset(
-        raw['train_set'], tube_df, specs_df, components_df)
+        raw['test_set'], tube_df, specs_df, components_df)
     return aug_train_set, aug_test_set
 
 

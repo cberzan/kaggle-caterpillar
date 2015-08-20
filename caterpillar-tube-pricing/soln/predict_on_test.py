@@ -13,7 +13,7 @@ from soln.dataset import inverse_log_transform_y
 if __name__ == "__main__":
     print "Loading augmented dataset..."
     aug_train_set, aug_test_set = get_augmented_train_and_test_set()
-
+    aug_train_set.pop('dev_fold')
     X_train = aug_train_set
     y_train = X_train.pop('log_cost')
     X_test = aug_test_set
