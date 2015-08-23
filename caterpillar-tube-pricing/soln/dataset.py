@@ -115,6 +115,13 @@ def get_bracketing_pattern_feature(dataset):
     return bracketing_pattern
 
 
+def get_ends_feature(dataset):
+    """
+    Return ends feature (a list containing end_a and end_x).
+    """
+    return list(zip(dataset.end_a.values, dataset.end_x.values))
+
+
 def get_augmented_dataset(orig_set, tube_df, specs_df, components_df):
     """
     Return aug_set with the same rows as orig_set, but more features.
@@ -154,6 +161,7 @@ def get_augmented_dataset(orig_set, tube_df, specs_df, components_df):
     aug_set['adj_quantity'] = get_adj_quantity_feature(aug_set)
     aug_set['adj_bracketing'] = get_adj_bracketing_feature(aug_set)
     aug_set['bracketing_pattern'] = get_bracketing_pattern_feature(aug_set)
+    aug_set['ends'] = get_ends_feature(aug_set)
 
     # TODO:
     # - bend_radius from tube.csv has missing values (9999) for 8 rows;
@@ -164,11 +172,6 @@ def get_augmented_dataset(orig_set, tube_df, specs_df, components_df):
     #   'other' for missing values?
     # - end_a and end_x from tube_csv have missing value 'NONE' and '9999',
     #   which pandas by default treats as two different string values)
-    # - handle duplicate specs (e.g. SP-0007); currently ListFeaturizer
-    #   just treats them as a single one.
-    # - add an `ends` list-valued feature, e.g. [EF-003, EF-006], so that
-    #   the info about both ends is merged into a single feature, which
-    #   gets converted to num_EF_003, num_EF_006, etc. numerical features.
     # - similarly, add end_1x_count and end_2x count features, treating the
     #   two ends as interchangeable.
     # - features like num_sleeve, etc. based on component types
@@ -332,6 +335,7 @@ class AllCategoricalsFeaturizer(object):
             CategoricalToNumeric('specs', multiple=True),
             CategoricalToNumeric('components', multiple=True),
             CategoricalToNumeric('bracketing_pattern'),
+            CategoricalToNumeric('ends', multiple=True),
         ]
         self.features_to_remove = [
             'tube_assembly_id',
