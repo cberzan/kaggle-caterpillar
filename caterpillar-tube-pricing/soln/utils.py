@@ -2,7 +2,6 @@ from collections import Counter
 from collections import defaultdict
 from sklearn import tree
 from sklearn.externals.six import StringIO
-from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 import numpy as np
 import pydot
@@ -58,19 +57,3 @@ def eval_regressor(regressor, X_train_np, y_train_np, X_test_np, y_test_np):
     y_test_pred = regressor.predict(X_test_np)
     test_rmsle = np.sqrt(mean_squared_error(y_test_np, y_test_pred))
     return train_rmsle, test_rmsle
-
-
-def get_fixed_and_var_cost(quantities, costs):
-    """
-    Return (fixed_cost, var_cost, r2).
-    """
-    xs = 1.0 / quantities
-    ys = costs
-
-    reg = LinearRegression(fit_intercept=True)
-    Xs = xs.reshape(len(xs), 1)
-    reg.fit(Xs, ys)
-    fixed_cost = reg.coef_[0]
-    var_cost = reg.intercept_
-    r2 = reg.score(Xs, ys)
-    return fixed_cost, var_cost, r2
