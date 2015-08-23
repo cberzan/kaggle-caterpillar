@@ -23,7 +23,7 @@ if __name__ == "__main__":
     X_train_np, y_train_np, X_test_np, _ = featurize_and_to_numpy(
         featurizer, X_train, y_train, X_test, None)
 
-    regressor = RandomForestRegressor(n_estimators=20)
+    regressor = RandomForestRegressor(n_estimators=100, max_features=0.4)
     # regressor = RandomForestRegressor(n_estimators=100)
     # regressor = DummyRegressor(strategy='mean')
     print "Fitting..."
