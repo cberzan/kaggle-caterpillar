@@ -23,6 +23,23 @@ def load_raw_data():
     return raw
 
 
+def load_raw_components():
+    # The 'data' dir is next to the 'soln' dir.
+    base_path = os.path.join(
+        os.path.dirname(dummy.__file__), '..', 'data', 'competition_data')
+
+    group_names = [
+        'adaptor', 'boss', 'elbow', 'float', 'hfl', 'nut', 'other', 'sleeve',
+        'straight', 'tee', 'threaded',
+    ]
+    group_dfs = {}
+    comp_types = pd.read_csv(os.path.join(base_path, 'type_component.csv'))
+    for group_name in group_names:
+        group_dfs[group_name] = pd.read_csv(
+            os.path.join(base_path, 'comp_' + group_name + '.csv'))
+    return comp_types, group_dfs
+
+
 def log_transform_y(y):
     return np.log(y + 1)
 
@@ -69,6 +86,32 @@ def get_components_df(raw):
         components.append(new_row)
     components_df['components'] = components
     return components_df
+
+
+def get_component_info_df(comp_types, group_dfs):
+    """
+    Return DataFrame with a row for each component.
+    """
+    df = pd.DataFrame()
+    col_to_default = {
+        'component_type_id': 'OTHER',
+        'weight': np.nan,
+        'orientation': 'No',
+        'unique_feature': 'No',
+    }
+    for group_name, group_df in group_dfs.iteritems():
+        tmp_df = pd.DataFrame()
+        tmp_df['component_id'] = group_df.component_id
+        tmp_df['component_group_id'] = group_name
+        for col_name, default_val in col_to_default.iteritems():
+            if col_name in group_df.columns:
+                tmp_df[col_name] = group_df[col_name]
+            else:
+                tmp_df[col_name] = default_val
+        df = df.append(tmp_df)
+    for col_name in ('orientation', 'unique_feature'):
+        df[col_name] = (df[col_name] == 'Yes')
+    return df
 
 
 def get_forming_ends(raw):
@@ -124,6 +167,38 @@ def get_bracketing_pattern_feature(dataset):
     return bracketing_pattern
 
 
+def get_component_groups_feature(dataset, component_info_df):
+    """
+    Return component_groups feature (list of component groups).
+
+    Assumes `dataset` already has the `components` column.
+    """
+    comp_to_group = dict(zip(
+        component_info_df.component_id.values,
+        component_info_df.component_group_id.values))
+    component_groups = []
+    for components in dataset.components:
+        groups = [comp_to_group[comp] for comp in components]
+        component_groups.append(groups)
+    return component_groups
+
+
+def get_component_types_feature(dataset, component_info_df):
+    """
+    Return component_types feature (list of component types).
+
+    Assumes `dataset` already has the `components` column.
+    """
+    comp_to_type = dict(zip(
+        component_info_df.component_id.values,
+        component_info_df.component_type_id.values))
+    component_types = []
+    for components in dataset.components:
+        types = [comp_to_type[comp] for comp in components]
+        component_types.append(types)
+    return component_types
+
+
 def get_ends_features(dataset, forming_ends):
     """
     Return a dict of end-related features.
@@ -150,7 +225,8 @@ def get_ends_features(dataset, forming_ends):
 
 
 def get_augmented_dataset(
-        orig_set, tube_df, specs_df, components_df, forming_ends):
+        orig_set, tube_df, specs_df, components_df, component_info_df,
+        forming_ends):
     """
     Return aug_set with the same rows as orig_set, but more features.
     """
@@ -189,6 +265,10 @@ def get_augmented_dataset(
     aug_set['adj_quantity'] = get_adj_quantity_feature(aug_set)
     aug_set['adj_bracketing'] = get_adj_bracketing_feature(aug_set)
     aug_set['bracketing_pattern'] = get_bracketing_pattern_feature(aug_set)
+    aug_set['component_groups'] = get_component_groups_feature(
+        aug_set, component_info_df)
+    aug_set['component_types'] = get_component_types_feature(
+        aug_set, component_info_df)
     end_feats = get_ends_features(aug_set, forming_ends)
     for feat_name, feat_col in end_feats.iteritems():
         aug_set[feat_name] = feat_col
@@ -202,7 +282,6 @@ def get_augmented_dataset(
     #   'other' for missing values?
     # - end_a and end_x from tube_csv have missing value 'NONE' and '9999',
     #   which pandas by default treats as two different string values)
-    # - features like num_sleeve, etc. based on component types
 
     return aug_set
 
@@ -247,16 +326,20 @@ def get_augmented_train_and_test_set():
     Return (aug_train_set, aug_test_set) DataFrames.
     """
     raw = load_raw_data()
+    comp_types, group_dfs = load_raw_components()
     tube_df = raw['tube']
     specs_df = get_specs_df(raw)
     components_df = get_components_df(raw)
+    component_info_df = get_component_info_df(comp_types, group_dfs)
     forming_ends = get_forming_ends(raw)
     aug_train_set = get_augmented_dataset(
-        raw['train_set'], tube_df, specs_df, components_df, forming_ends)
+        raw['train_set'], tube_df, specs_df, components_df,
+        component_info_df, forming_ends)
     aug_train_set = add_dev_fold_column(aug_train_set)
     raw['test_set'].pop('id')
     aug_test_set = get_augmented_dataset(
-        raw['test_set'], tube_df, specs_df, components_df, forming_ends)
+        raw['test_set'], tube_df, specs_df, components_df,
+        component_info_df, forming_ends)
     return aug_train_set, aug_test_set
 
 
@@ -303,8 +386,8 @@ class CategoricalToNumeric(object):
     def fit(self, dataset):
         # Build a map from string feature values to unique integers.
         # Assumes 'other' does not occur as a value.
-        self.val_to_int = {'other': 0}
-        self.int_to_val = ['other']
+        self.val_to_int = {'XXX_other': 0}
+        self.int_to_val = ['XXX_other']
         next_index = 1
         self.build_counter(dataset[self.col_name])
         for val, count in self._counter.iteritems():
@@ -339,7 +422,7 @@ class CategoricalToNumeric(object):
                 if val in self.val_to_int:
                     feats[i, self.val_to_int[val]] += 1
                 else:
-                    feats[i, self.val_to_int['other']] += 1
+                    feats[i, self.val_to_int['XXX_other']] += 1
         feat_names = [
             '{} {}'.format(self.col_name, val)
             for val in self.int_to_val]
@@ -364,6 +447,8 @@ class AllCategoricalsFeaturizer(object):
             CategoricalToNumeric('components', multiple=True),
             CategoricalToNumeric('bracketing_pattern'),
             CategoricalToNumeric('ends', multiple=True),
+            CategoricalToNumeric('component_groups', multiple=True),
+            CategoricalToNumeric('component_types', multiple=True),
         ]
         self.features_to_remove = [
             'tube_assembly_id',
