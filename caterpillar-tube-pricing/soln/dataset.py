@@ -235,6 +235,28 @@ def get_orientation_count_feature(dataset, component_info_df):
     return orientation_count
 
 
+def get_total_component_weight_feature(dataset, component_info_df):
+    """
+    Return total_component_weight feature.
+
+    (sum of weights of individual components)
+
+    Assumes `dataset` already has the `components` column.
+    """
+    comp_to_weight = dict(zip(
+        component_info_df.component_id.values,
+        component_info_df.weight.values))
+    # Treat missing weights as zeros.
+    for comp in comp_to_weight:
+        if np.isnan(comp_to_weight[comp]):
+            comp_to_weight[comp] = 0.0
+    total_comp_weight = []
+    for components in dataset.components:
+        total_weight = sum(comp_to_weight[comp] for comp in components)
+        total_comp_weight.append(total_weight)
+    return total_comp_weight
+
+
 def get_ends_features(dataset, forming_ends):
     """
     Return a dict of end-related features.
@@ -308,6 +330,8 @@ def get_augmented_dataset(
     aug_set['unique_feature_count'] = get_unique_feature_count_feature(
         aug_set, component_info_df)
     aug_set['orientation_count'] = get_orientation_count_feature(
+        aug_set, component_info_df)
+    aug_set['total_component_weight'] = get_total_component_weight_feature(
         aug_set, component_info_df)
     end_feats = get_ends_features(aug_set, forming_ends)
     for feat_name, feat_col in end_feats.iteritems():
