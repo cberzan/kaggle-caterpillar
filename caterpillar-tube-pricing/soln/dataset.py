@@ -15,6 +15,7 @@ def load_raw_data():
 
     filenames = [
         'train_set', 'test_set', 'tube', 'specs', 'bill_of_materials',
+        'tube_end_form',
     ]
     raw = {}
     for filename in filenames:
@@ -70,6 +71,14 @@ def get_components_df(raw):
     return components_df
 
 
+def get_forming_ends(raw):
+    """
+    Return set of "forming" end forms from tube_end_form.csv.
+    """
+    df = raw['tube_end_form']
+    return set(df[df.forming == 'Yes'].end_form_id)
+
+
 def get_quote_age_feature(dataset):
     """
     Return quote_age (quote_date_days_since_1900) Series.
@@ -115,7 +124,7 @@ def get_bracketing_pattern_feature(dataset):
     return bracketing_pattern
 
 
-def get_ends_features(dataset):
+def get_ends_features(dataset, forming_ends):
     """
     Return a dict of end-related features.
     """
@@ -130,10 +139,18 @@ def get_ends_features(dataset):
     feats['end_2x_count'] = (
         dataset.end_a_2x.astype(np.int) + dataset.end_x_2x.astype(np.int))
 
+    # end_a_forming, end_x_forming, end_forming_count features.
+    feats['end_a_forming'] = dataset.end_a.isin(forming_ends)
+    feats['end_x_forming'] = dataset.end_x.isin(forming_ends)
+    feats['end_forming_count'] = (
+        feats['end_a_forming'].astype(np.int) +
+        feats['end_x_forming'].astype(np.int))
+
     return feats
 
 
-def get_augmented_dataset(orig_set, tube_df, specs_df, components_df):
+def get_augmented_dataset(
+        orig_set, tube_df, specs_df, components_df, forming_ends):
     """
     Return aug_set with the same rows as orig_set, but more features.
     """
@@ -172,7 +189,8 @@ def get_augmented_dataset(orig_set, tube_df, specs_df, components_df):
     aug_set['adj_quantity'] = get_adj_quantity_feature(aug_set)
     aug_set['adj_bracketing'] = get_adj_bracketing_feature(aug_set)
     aug_set['bracketing_pattern'] = get_bracketing_pattern_feature(aug_set)
-    for feat_name, feat_col in get_ends_features(aug_set).iteritems():
+    end_feats = get_ends_features(aug_set, forming_ends)
+    for feat_name, feat_col in end_feats.iteritems():
         aug_set[feat_name] = feat_col
 
     # TODO:
@@ -185,7 +203,6 @@ def get_augmented_dataset(orig_set, tube_df, specs_df, components_df):
     # - end_a and end_x from tube_csv have missing value 'NONE' and '9999',
     #   which pandas by default treats as two different string values)
     # - features like num_sleeve, etc. based on component types
-    # - end-form "is forming" features from tube_end_form.csv
 
     return aug_set
 
@@ -233,12 +250,13 @@ def get_augmented_train_and_test_set():
     tube_df = raw['tube']
     specs_df = get_specs_df(raw)
     components_df = get_components_df(raw)
+    forming_ends = get_forming_ends(raw)
     aug_train_set = get_augmented_dataset(
-        raw['train_set'], tube_df, specs_df, components_df)
+        raw['train_set'], tube_df, specs_df, components_df, forming_ends)
     aug_train_set = add_dev_fold_column(aug_train_set)
     raw['test_set'].pop('id')
     aug_test_set = get_augmented_dataset(
-        raw['test_set'], tube_df, specs_df, components_df)
+        raw['test_set'], tube_df, specs_df, components_df, forming_ends)
     return aug_train_set, aug_test_set
 
 
