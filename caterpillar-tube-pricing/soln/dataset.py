@@ -115,11 +115,22 @@ def get_bracketing_pattern_feature(dataset):
     return bracketing_pattern
 
 
-def get_ends_feature(dataset):
+def get_ends_features(dataset):
     """
-    Return ends feature (a list containing end_a and end_x).
+    Return a dict of end-related features.
     """
-    return list(zip(dataset.end_a.values, dataset.end_x.values))
+    feats = {}
+
+    # Combine the two end forms into a single list-valued feature.
+    feats['ends'] = list(zip(dataset.end_a.values, dataset.end_x.values))
+
+    # Combine the two end dimensions into a single numeric feature.
+    feats['end_1x_count'] = (
+        dataset.end_a_1x.astype(np.int) + dataset.end_x_1x.astype(np.int))
+    feats['end_2x_count'] = (
+        dataset.end_a_2x.astype(np.int) + dataset.end_x_2x.astype(np.int))
+
+    return feats
 
 
 def get_augmented_dataset(orig_set, tube_df, specs_df, components_df):
@@ -161,7 +172,8 @@ def get_augmented_dataset(orig_set, tube_df, specs_df, components_df):
     aug_set['adj_quantity'] = get_adj_quantity_feature(aug_set)
     aug_set['adj_bracketing'] = get_adj_bracketing_feature(aug_set)
     aug_set['bracketing_pattern'] = get_bracketing_pattern_feature(aug_set)
-    aug_set['ends'] = get_ends_feature(aug_set)
+    for feat_name, feat_col in get_ends_features(aug_set).iteritems():
+        aug_set[feat_name] = feat_col
 
     # TODO:
     # - bend_radius from tube.csv has missing values (9999) for 8 rows;
@@ -172,8 +184,6 @@ def get_augmented_dataset(orig_set, tube_df, specs_df, components_df):
     #   'other' for missing values?
     # - end_a and end_x from tube_csv have missing value 'NONE' and '9999',
     #   which pandas by default treats as two different string values)
-    # - similarly, add end_1x_count and end_2x count features, treating the
-    #   two ends as interchangeable.
     # - features like num_sleeve, etc. based on component types
     # - end-form "is forming" features from tube_end_form.csv
 
