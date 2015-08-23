@@ -199,6 +199,42 @@ def get_component_types_feature(dataset, component_info_df):
     return component_types
 
 
+def get_unique_feature_count_feature(dataset, component_info_df):
+    """
+    Return unique_feature_count feature.
+
+    (number of components with unique_feature=True)
+
+    Assumes `dataset` already has the `components` column.
+    """
+    comp_to_uniqfeat = dict(zip(
+        component_info_df.component_id.values,
+        component_info_df.unique_feature.astype(np.int).values))
+    unique_feature_count = []
+    for components in dataset.components:
+        count = sum(comp_to_uniqfeat[comp] for comp in components)
+        unique_feature_count.append(count)
+    return unique_feature_count
+
+
+def get_orientation_count_feature(dataset, component_info_df):
+    """
+    Return orientation_count feature.
+
+    (number of components with orientation=True)
+
+    Assumes `dataset` already has the `components` column.
+    """
+    comp_to_ori = dict(zip(
+        component_info_df.component_id.values,
+        component_info_df.orientation.astype(np.int).values))
+    orientation_count = []
+    for components in dataset.components:
+        count = sum(comp_to_ori[comp] for comp in components)
+        orientation_count.append(count)
+    return orientation_count
+
+
 def get_ends_features(dataset, forming_ends):
     """
     Return a dict of end-related features.
@@ -268,6 +304,10 @@ def get_augmented_dataset(
     aug_set['component_groups'] = get_component_groups_feature(
         aug_set, component_info_df)
     aug_set['component_types'] = get_component_types_feature(
+        aug_set, component_info_df)
+    aug_set['unique_feature_count'] = get_unique_feature_count_feature(
+        aug_set, component_info_df)
+    aug_set['orientation_count'] = get_orientation_count_feature(
         aug_set, component_info_df)
     end_feats = get_ends_features(aug_set, forming_ends)
     for feat_name, feat_col in end_feats.iteritems():
