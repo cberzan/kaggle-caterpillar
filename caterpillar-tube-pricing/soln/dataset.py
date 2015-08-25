@@ -98,6 +98,10 @@ def get_component_info_df(comp_types, group_dfs):
         'weight': np.nan,
         'orientation': 'No',
         'unique_feature': 'No',
+        'end_form_id_1': None,
+        'end_form_id_2': None,
+        'end_form_id_3': None,
+        'end_form_id_4': None,
     }
     for group_name, group_df in group_dfs.iteritems():
         tmp_df = pd.DataFrame()
@@ -257,6 +261,36 @@ def get_total_component_weight_feature(dataset, component_info_df):
     return total_comp_weight
 
 
+def get_component_end_forms_feature(dataset, component_info_df):
+    """
+    Return component_end_forms feature.
+
+    This feature is a list of `end_form_id_{1,2,3,4}` from components in groups
+    'threaded' and 'adaptor'.
+
+    Assumes `dataset` already has the `components` column.
+    """
+    comp_end_forms = zip(
+        component_info_df.component_id.values,
+        component_info_df.end_form_id_1.values,
+        component_info_df.end_form_id_2.values,
+        component_info_df.end_form_id_3.values,
+        component_info_df.end_form_id_4.values,
+    )
+    comp_to_end_forms = dict([
+        # Annoying: Need to filter out both np.nan and None values.
+        (tup[0], filter(lambda x: isinstance(x, str), tup[1:]))
+        for tup in comp_end_forms
+    ])
+    component_end_forms = []
+    for components in dataset.components:
+        end_forms = []
+        for comp in components:
+            end_forms.extend(comp_to_end_forms[comp])
+        component_end_forms.append(end_forms)
+    return component_end_forms
+
+
 def get_ends_features(dataset, forming_ends):
     """
     Return a dict of end-related features.
@@ -332,6 +366,8 @@ def get_augmented_dataset(
     aug_set['orientation_count'] = get_orientation_count_feature(
         aug_set, component_info_df)
     aug_set['total_component_weight'] = get_total_component_weight_feature(
+        aug_set, component_info_df)
+    aug_set['component_end_forms'] = get_component_end_forms_feature(
         aug_set, component_info_df)
     end_feats = get_ends_features(aug_set, forming_ends)
     for feat_name, feat_col in end_feats.iteritems():
@@ -513,6 +549,7 @@ class AllCategoricalsFeaturizer(object):
             CategoricalToNumeric('ends', multiple=True),
             CategoricalToNumeric('component_groups', multiple=True),
             CategoricalToNumeric('component_types', multiple=True),
+            CategoricalToNumeric('component_end_forms', multiple=True),
         ]
         self.features_to_remove = [
             'tube_assembly_id',
