@@ -1,6 +1,7 @@
 from collections import Counter
 from datetime import datetime
 from sklearn.cross_validation import StratifiedKFold
+import itertools
 import numpy as np
 import os
 import pandas as pd
@@ -92,29 +93,99 @@ def get_component_info_df(comp_types, group_dfs):
     """
     Return DataFrame with a row for each component.
     """
+    # Concatenate all component-specific tables, adding missing values for
+    # columns that only exist in some tables.
     df = pd.DataFrame()
-    col_to_default = {
-        'component_type_id': 'OTHER',
-        'weight': np.nan,
-        'orientation': 'No',
-        'unique_feature': 'No',
-        'end_form_id_1': None,
-        'end_form_id_2': None,
-        'end_form_id_3': None,
-        'end_form_id_4': None,
-    }
     for group_name, group_df in group_dfs.iteritems():
-        tmp_df = pd.DataFrame()
-        tmp_df['component_id'] = group_df.component_id
-        tmp_df['component_group_id'] = group_name
-        for col_name, default_val in col_to_default.iteritems():
-            if col_name in group_df.columns:
-                tmp_df[col_name] = group_df[col_name]
-            else:
-                tmp_df[col_name] = default_val
-        df = df.append(tmp_df)
-    for col_name in ('orientation', 'unique_feature'):
-        df[col_name] = (df[col_name] == 'Yes')
+        group_df['component_group_id'] = group_name
+        df = df.append(group_df)
+
+    # Concatenate the values in these columns into lists.
+    list_feats = {
+        'connection_types': [
+            'connection_type_id',
+            'connection_type_id_1',
+            'connection_type_id_2',
+            'connection_type_id_3',
+            'connection_type_id_4',
+        ],
+        'end_forms': [
+            'end_form_id_1',
+            'end_form_id_2',
+            'end_form_id_3',
+            'end_form_id_4',
+        ],
+        'lengths': [
+            'length',
+            'length_1',
+            'length_2',
+            'length_3',
+            'length_4',
+        ],
+        'nominal_sizes': [
+            'nominal_size_1',
+            'nominal_size_2',
+            'nominal_size_3',
+            'nominal_size_4',
+        ],
+        'thread_pitches': [
+            'thread_pitch',
+            'thread_pitch_1',
+            'thread_pitch_2',
+            'thread_pitch_3',
+            'thread_pitch_4',
+        ],
+        'thread_sizes': [
+            'thread_size',
+            'thread_size_1',
+            'thread_size_2',
+            'thread_size_3',
+            'thread_size_4',
+        ],
+    }
+    for list_col_name, col_names in list_feats.iteritems():
+        lists = [df[col_name].values for col_name in col_names]
+        nz_vals = [
+            filter(lambda x: not pd.isnull(x), vals)
+            for vals in zip(*lists)
+        ]
+        df[list_col_name] = nz_vals
+        for col_name in col_names:
+            df.pop(col_name)
+
+    # Convert binary columns from strings to bools.
+    col_true_false = [
+        ('groove', 'Yes', 'No'),
+        ('orientation', 'Yes', 'No'),
+        ('unique_feature', 'Yes', 'No'),
+    ]
+    for col, true_val, false_val in col_true_false:
+        df[col].fillna(false_val, inplace=True)
+        df[col] = (df[col] == true_val)
+
+    # Aggregate some columns.
+    aggregations = [
+        ('max_length', 'lengths', max, 0),
+        ('min_thread_pitch', 'thread_pitches', min, 9999),
+        ('min_thread_size', 'thread_sizes', min, 9999),
+    ]
+    for new_col, col, aggregator, init in aggregations:
+        # The (init, init, *x) is necessary for this lambda to work
+        # correctly for empty x...
+        df[new_col] = df[col].map(lambda x: aggregator(init, init, *x))
+
+    # Fill in missing values for the columns we will use.
+    col_to_na_val = {
+        'component_type_id': 'other',
+        'bolt_pattern_long': 0.0,
+        'bolt_pattern_wide': 0.0,
+        'overall_length': 0.0,
+        'thickness': 0.0,
+        'weight': 0.0,
+    }
+    for col, na_val in col_to_na_val.iteritems():
+        df[col].fillna(na_val, inplace=True)
+
     return df
 
 
@@ -171,126 +242,6 @@ def get_bracketing_pattern_feature(dataset):
     return bracketing_pattern
 
 
-def get_component_groups_feature(dataset, component_info_df):
-    """
-    Return component_groups feature (list of component groups).
-
-    Assumes `dataset` already has the `components` column.
-    """
-    comp_to_group = dict(zip(
-        component_info_df.component_id.values,
-        component_info_df.component_group_id.values))
-    component_groups = []
-    for components in dataset.components:
-        groups = [comp_to_group[comp] for comp in components]
-        component_groups.append(groups)
-    return component_groups
-
-
-def get_component_types_feature(dataset, component_info_df):
-    """
-    Return component_types feature (list of component types).
-
-    Assumes `dataset` already has the `components` column.
-    """
-    comp_to_type = dict(zip(
-        component_info_df.component_id.values,
-        component_info_df.component_type_id.values))
-    component_types = []
-    for components in dataset.components:
-        types = [comp_to_type[comp] for comp in components]
-        component_types.append(types)
-    return component_types
-
-
-def get_unique_feature_count_feature(dataset, component_info_df):
-    """
-    Return unique_feature_count feature.
-
-    (number of components with unique_feature=True)
-
-    Assumes `dataset` already has the `components` column.
-    """
-    comp_to_uniqfeat = dict(zip(
-        component_info_df.component_id.values,
-        component_info_df.unique_feature.astype(np.int).values))
-    unique_feature_count = []
-    for components in dataset.components:
-        count = sum(comp_to_uniqfeat[comp] for comp in components)
-        unique_feature_count.append(count)
-    return unique_feature_count
-
-
-def get_orientation_count_feature(dataset, component_info_df):
-    """
-    Return orientation_count feature.
-
-    (number of components with orientation=True)
-
-    Assumes `dataset` already has the `components` column.
-    """
-    comp_to_ori = dict(zip(
-        component_info_df.component_id.values,
-        component_info_df.orientation.astype(np.int).values))
-    orientation_count = []
-    for components in dataset.components:
-        count = sum(comp_to_ori[comp] for comp in components)
-        orientation_count.append(count)
-    return orientation_count
-
-
-def get_total_component_weight_feature(dataset, component_info_df):
-    """
-    Return total_component_weight feature.
-
-    (sum of weights of individual components)
-
-    Assumes `dataset` already has the `components` column.
-    """
-    comp_to_weight = dict(zip(
-        component_info_df.component_id.values,
-        component_info_df.weight.values))
-    # Treat missing weights as zeros.
-    for comp in comp_to_weight:
-        if np.isnan(comp_to_weight[comp]):
-            comp_to_weight[comp] = 0.0
-    total_comp_weight = []
-    for components in dataset.components:
-        total_weight = sum(comp_to_weight[comp] for comp in components)
-        total_comp_weight.append(total_weight)
-    return total_comp_weight
-
-
-def get_component_end_forms_feature(dataset, component_info_df):
-    """
-    Return component_end_forms feature.
-
-    This feature is a list of `end_form_id_{1,2,3,4}` from components in groups
-    'threaded' and 'adaptor'.
-
-    Assumes `dataset` already has the `components` column.
-    """
-    comp_end_forms = zip(
-        component_info_df.component_id.values,
-        component_info_df.end_form_id_1.values,
-        component_info_df.end_form_id_2.values,
-        component_info_df.end_form_id_3.values,
-        component_info_df.end_form_id_4.values,
-    )
-    comp_to_end_forms = dict([
-        # Annoying: Need to filter out both np.nan and None values.
-        (tup[0], filter(lambda x: isinstance(x, str), tup[1:]))
-        for tup in comp_end_forms
-    ])
-    component_end_forms = []
-    for components in dataset.components:
-        end_forms = []
-        for comp in components:
-            end_forms.extend(comp_to_end_forms[comp])
-        component_end_forms.append(end_forms)
-    return component_end_forms
-
-
 def get_ends_features(dataset, forming_ends):
     """
     Return a dict of end-related features.
@@ -314,6 +265,18 @@ def get_ends_features(dataset, forming_ends):
         feats['end_x_forming'].astype(np.int))
 
     return feats
+
+
+def myidentity(init0, init1, *vals):
+    return list(vals)
+
+
+def mysum(*vals):
+    return sum(vals)
+
+
+def flatten(*lists):
+    return list(itertools.chain(*lists))
 
 
 def get_augmented_dataset(
@@ -357,21 +320,37 @@ def get_augmented_dataset(
     aug_set['adj_quantity'] = get_adj_quantity_feature(aug_set)
     aug_set['adj_bracketing'] = get_adj_bracketing_feature(aug_set)
     aug_set['bracketing_pattern'] = get_bracketing_pattern_feature(aug_set)
-    aug_set['component_groups'] = get_component_groups_feature(
-        aug_set, component_info_df)
-    aug_set['component_types'] = get_component_types_feature(
-        aug_set, component_info_df)
-    aug_set['unique_feature_count'] = get_unique_feature_count_feature(
-        aug_set, component_info_df)
-    aug_set['orientation_count'] = get_orientation_count_feature(
-        aug_set, component_info_df)
-    aug_set['total_component_weight'] = get_total_component_weight_feature(
-        aug_set, component_info_df)
-    aug_set['component_end_forms'] = get_component_end_forms_feature(
-        aug_set, component_info_df)
     end_feats = get_ends_features(aug_set, forming_ends)
     for feat_name, feat_col in end_feats.iteritems():
         aug_set[feat_name] = feat_col
+
+    # Add features from the component_info_df.
+    aggregations = [
+        ('component_groups', 'component_group_id', myidentity, None),
+        ('component_types', 'component_type_id', myidentity, None),
+        ('unique_feature_count', 'unique_feature', mysum, 0.0),
+        ('orientation_count', 'orientation', mysum, 0.0),
+        ('groove_count', 'groove', mysum, 0.0),
+        ('total_component_weight', 'weight', mysum, 0.0),
+        ('component_end_forms', 'end_forms', flatten, []),
+        ('component_connection_types', 'connection_types', flatten, []),
+        ('component_max_length', 'max_length', max, 0.0),
+        ('component_max_overall_length', 'overall_length', max, 0.0),
+        ('component_max_bolt_pattern_wide', 'bolt_pattern_wide', max, 0.0),
+        ('component_max_bolt_pattern_long', 'bolt_pattern_long', max, 0.0),
+        ('component_max_thickness', 'thickness', max, 0.0),
+        ('component_min_thread_pitch', 'min_thread_pitch', min, 9999),
+        ('component_min_thread_size', 'min_thread_size', min, 9999),
+    ]
+    for feat, col, aggregator, init in aggregations:
+        cid_to_val = dict(zip(
+            component_info_df.component_id.values,
+            component_info_df[col].values))
+        feat_vals = []
+        for cid_list in aug_set.components:
+            vals = [cid_to_val[cid] for cid in cid_list]
+            feat_vals.append(aggregator(init, init, *vals))
+        aug_set[feat] = feat_vals
 
     # TODO:
     # - bend_radius from tube.csv has missing values (9999) for 8 rows;
@@ -550,6 +529,7 @@ class AllCategoricalsFeaturizer(object):
             CategoricalToNumeric('component_groups', multiple=True),
             CategoricalToNumeric('component_types', multiple=True),
             CategoricalToNumeric('component_end_forms', multiple=True),
+            CategoricalToNumeric('component_connection_types', multiple=True),
         ]
         self.features_to_remove = [
             'tube_assembly_id',
