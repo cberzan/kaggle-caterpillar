@@ -271,6 +271,10 @@ def myidentity(init0, init1, *vals):
     return list(vals)
 
 
+def drop_nans(init0, init1, *vals):
+    return filter(lambda x: not pd.isnull(x), vals)
+
+
 def mysum(*vals):
     return sum(vals)
 
@@ -341,6 +345,7 @@ def get_augmented_dataset(
         ('component_max_thickness', 'thickness', max, 0.0),
         ('component_min_thread_pitch', 'min_thread_pitch', min, 9999),
         ('component_min_thread_size', 'min_thread_size', min, 9999),
+        ('component_part_names', 'part_name', drop_nans, None),
     ]
     for feat, col, aggregator, init in aggregations:
         cid_to_val = dict(zip(
@@ -530,6 +535,7 @@ class AllCategoricalsFeaturizer(object):
             CategoricalToNumeric('component_types', multiple=True),
             CategoricalToNumeric('component_end_forms', multiple=True),
             CategoricalToNumeric('component_connection_types', multiple=True),
+            CategoricalToNumeric('component_part_names', multiple=True),
         ]
         self.features_to_remove = [
             'tube_assembly_id',

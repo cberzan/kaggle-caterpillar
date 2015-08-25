@@ -4,6 +4,7 @@ from sklearn import tree
 from sklearn.externals.six import StringIO
 from sklearn.metrics import mean_squared_error
 import numpy as np
+import pandas as pd
 import pydot
 
 
@@ -57,3 +58,28 @@ def eval_regressor(regressor, X_train_np, y_train_np, X_test_np, y_test_np):
     y_test_pred = regressor.predict(X_test_np)
     test_rmsle = np.sqrt(mean_squared_error(y_test_np, y_test_pred))
     return train_rmsle, test_rmsle
+
+
+def count_components(aug_set, component_info_df):
+    """
+    Return DataFrame with columns ['component_id', 'count'].
+
+    'count' is the number of `tube_assembly_id`s in `aug_set` that have the
+    given component.
+    """
+    # Collect tube_assembly_id -> components mapping. If same tube_assembly_id
+    # has multiple values for components, pick one arbitrarily.
+    df = aug_set[['tube_assembly_id', 'components']].copy()
+    df.drop_duplicates(subset='tube_assembly_id', inplace=True)
+    df.set_index('tube_assembly_id', inplace=True)
+
+    # Count `tube_assembly_id`s that have each component, ignoring duplicates.
+    cid_to_count = {cid: 0 for cid in component_info_df.component_id.values}
+    for taid, cids in df.components.iteritems():
+        for cid in np.unique(cids):
+            cid_to_count[cid] += 1
+
+    series = pd.Series(cid_to_count, name='count')
+    series.index.name = 'component_id'
+    df = series.reset_index()
+    return df
