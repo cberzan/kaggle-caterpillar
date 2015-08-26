@@ -39,7 +39,7 @@ if __name__ == "__main__":
         'min_child_weight': 6,
         'subsample': 0.7,
         'colsample_bytree': 0.6,
-        'scale_pos_weight': 0.8,  # undocumented?!
+        'scale_pos_weight': 0.8,
         'silent': 1,
         'max_depth': 8,
         'max_delta_step': 2,
