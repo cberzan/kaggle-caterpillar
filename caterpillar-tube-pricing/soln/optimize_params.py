@@ -135,27 +135,25 @@ if __name__ == "__main__":
     trials_path = os.path.join(base_path, 'hyperopt-{}.pickle'.format(run_id))
     wrapper = HyperoptWrapper(csv_path)
     hp = hyperopt.hp
+
+    # Coarse with 100 trees:
     space = {
         'objective': 'reg:linear',
         'silent': 1,
-        'num_rounds': 10,
-        'eta': hp.quniform('eta', 0.01, 1, 0.01),
-        'min_child_weight': 6,
-        'subsample': 0.7,
-        'colsample_bytree': 0.6,
-        'max_depth': 8,
-
-        # 'min_child_weight': hp.quniform('min_child_weight', 0, 20, 1),
-        # 'max_depth': hp.quniform('max_depth', 1, 15, 1),
-        # 'subsample': hp.quniform('subsample', 0.5, 1.0, 0.1),
-        # 'colsample_bytree': hp.quniform('colsample_bytree', 0.1, 1.0, 0.1),
+        'num_rounds': 100,
+        'eta': hp.choice('eta', [0.03, 0.1, 0.2, 0.3, 0.4, 0.5, 0.8]),
+        'min_child_weight': hp.quniform('min_child_weight', 0, 20, 1),
+        'max_depth': hp.quniform('max_depth', 1, 15, 1),
+        'subsample': hp.quniform('subsample', 0.5, 1.0, 0.1),
+        'colsample_bytree': hp.quniform('colsample_bytree', 0.1, 1.0, 0.1),
     }
+
     trials = hyperopt.Trials()
     best = hyperopt.fmin(
         wrapper.objective,
         space=space,
         algo=hyperopt.tpe.suggest,
-        max_evals=10,
+        max_evals=200,
         trials=trials)
     with open(trials_path, 'w') as f:
         pickle.dump(trials, f)
