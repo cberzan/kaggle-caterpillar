@@ -29,16 +29,26 @@ def load_raw_components():
     base_path = os.path.join(
         os.path.dirname(dummy.__file__), '..', 'data', 'competition_data')
 
+    comp_types = pd.read_csv(os.path.join(base_path, 'type_component.csv'))
+
     group_names = [
         'adaptor', 'boss', 'elbow', 'float', 'hfl', 'nut', 'other', 'sleeve',
         'straight', 'tee', 'threaded',
     ]
     group_dfs = {}
-    comp_types = pd.read_csv(os.path.join(base_path, 'type_component.csv'))
     for group_name in group_names:
         group_dfs[group_name] = pd.read_csv(
             os.path.join(base_path, 'comp_' + group_name + '.csv'))
-    return comp_types, group_dfs
+
+    cluster_group_names = [
+        'straight',
+    ]
+    cluster_dfs = {}
+    for group_name in cluster_group_names:
+        cluster_dfs[group_name] = pd.read_csv(
+            os.path.join(base_path, '..', '..', 'clu_' + group_name + '.csv'))
+
+    return comp_types, group_dfs, cluster_dfs
 
 
 def log_transform_y(y):
@@ -89,7 +99,7 @@ def get_components_df(raw):
     return components_df
 
 
-def get_component_info_df(comp_types, group_dfs):
+def get_component_info_df(comp_types, group_dfs, cluster_dfs):
     """
     Return DataFrame with a row for each component.
     """
@@ -99,6 +109,8 @@ def get_component_info_df(comp_types, group_dfs):
     for group_name, group_df in group_dfs.iteritems():
         group_df['component_group_id'] = group_name
         df = df.append(group_df)
+    for group_name, cluster_df in cluster_dfs.iteritems():
+        df = df.merge(cluster_df, how='left', on='component_id')
 
     # Concatenate the values in these columns into lists.
     list_feats = {
@@ -346,6 +358,7 @@ def get_augmented_dataset(
         ('component_min_thread_pitch', 'min_thread_pitch', min, 9999),
         ('component_min_thread_size', 'min_thread_size', min, 9999),
         ('component_part_names', 'part_name', drop_nans, None),
+        ('component_clusters', 'cluster', drop_nans, None),
     ]
     for feat, col, aggregator, init in aggregations:
         cid_to_val = dict(zip(
@@ -410,11 +423,12 @@ def get_augmented_train_and_test_set():
     Return (aug_train_set, aug_test_set) DataFrames.
     """
     raw = load_raw_data()
-    comp_types, group_dfs = load_raw_components()
+    comp_types, group_dfs, cluster_dfs = load_raw_components()
     tube_df = raw['tube']
     specs_df = get_specs_df(raw)
     components_df = get_components_df(raw)
-    component_info_df = get_component_info_df(comp_types, group_dfs)
+    component_info_df = get_component_info_df(
+        comp_types, group_dfs, cluster_dfs)
     forming_ends = get_forming_ends(raw)
     aug_train_set = get_augmented_dataset(
         raw['train_set'], tube_df, specs_df, components_df,
@@ -536,6 +550,7 @@ class AllCategoricalsFeaturizer(object):
             CategoricalToNumeric('component_end_forms', multiple=True),
             CategoricalToNumeric('component_connection_types', multiple=True),
             CategoricalToNumeric('component_part_names', multiple=True),
+            CategoricalToNumeric('component_clusters', multiple=True),
         ]
         self.features_to_remove = [
             'tube_assembly_id',
