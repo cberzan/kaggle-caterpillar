@@ -256,6 +256,25 @@ def get_bracketing_pattern_feature(dataset):
     return bracketing_pattern
 
 
+def get_physical_volume_feature(dataset):
+    radius = 0.5 * dataset.diameter
+    phys_vol = dataset.length * np.pi * (radius ** 2)
+    return phys_vol
+
+
+def get_inner_radius_feature(dataset):
+    outer_radius = 0.5 * dataset.diameter
+    inner_radius = outer_radius - dataset.wall_thickness
+    return inner_radius
+
+
+def get_material_volume_feature(dataset):
+    outer_radius = 0.5 * dataset.diameter
+    inner_radius = outer_radius - dataset.wall_thickness
+    mat_vol = dataset.length * np.pi * (outer_radius ** 2 - inner_radius ** 2)
+    return mat_vol
+
+
 def get_ends_features(dataset, forming_ends):
     """
     Return a dict of end-related features.
@@ -338,6 +357,9 @@ def get_augmented_dataset(
     aug_set['adj_quantity'] = get_adj_quantity_feature(aug_set)
     aug_set['adj_bracketing'] = get_adj_bracketing_feature(aug_set)
     aug_set['bracketing_pattern'] = get_bracketing_pattern_feature(aug_set)
+    aug_set['physical_volume'] = get_physical_volume_feature(aug_set)
+    aug_set['inner_radius'] = get_inner_radius_feature(aug_set)
+    aug_set['material_volume'] = get_material_volume_feature(aug_set)
     end_feats = get_ends_features(aug_set, forming_ends)
     for feat_name, feat_col in end_feats.iteritems():
         aug_set[feat_name] = feat_col
