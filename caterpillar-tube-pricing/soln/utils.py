@@ -6,6 +6,7 @@ from sklearn.metrics import mean_squared_error
 import numpy as np
 import pandas as pd
 import pydot
+import xgboost as xgb
 
 
 def print_feature_importances(X_train, regressor):
@@ -83,3 +84,56 @@ def count_components(aug_set, component_info_df):
     series.index.name = 'component_id'
     df = series.reset_index()
     return df
+
+
+def train_model(params, get_indices, featurizer, X_train, y_train):
+    # Select subset of train set according to get_indices.
+    train_is = get_indices(X_train)
+    X_train = X_train[train_is].reset_index(drop=True)
+    y_train = y_train[train_is].reset_index(drop=True)
+
+    # Featurize and convert to DMatrix.
+    featurizer.fit(X_train)
+    X_train_feats = featurizer.transform(X_train)
+    X_train_np = X_train_feats.astype(np.float).values
+    y_train_np = y_train.values
+    xgtrain = xgb.DMatrix(X_train_np, label=y_train_np)
+
+    # Train model.
+    params = params.copy()
+    num_rounds = params.pop('num_rounds')
+    model = xgb.train(params.items(), xgtrain, num_rounds)
+
+    return {
+        'train_is': train_is,
+        'X_train': X_train,
+        'X_train_feats': X_train_feats,
+        'y_train': y_train,
+        'model': model,
+    }
+
+
+def eval_model(model, get_indices, featurizer, X_eval, y_eval):
+    # Select subset of eval set according to get_indices.
+    eval_is = get_indices(X_eval)
+    X_eval = X_eval[eval_is].reset_index(drop=True)
+    y_eval = y_eval[eval_is].reset_index(drop=True)
+
+    # Featurize and convert to DMatrix.
+    X_eval_feats = featurizer.transform(X_eval)
+    X_eval_np = X_eval_feats.astype(np.float).values
+    y_eval_np = y_eval.values
+    xgeval = xgb.DMatrix(X_eval_np, label=y_eval_np)
+
+    # Get predictions and compute RMSLE.
+    y_eval_pred = model.predict(xgeval)
+    rmsle = np.sqrt(mean_squared_error(y_eval_np, y_eval_pred))
+
+    return {
+        'eval_is': eval_is,
+        'X_eval': X_eval,
+        'X_eval_feats': X_eval_feats,
+        'y_eval': y_eval,
+        'y_eval_pred': y_eval_pred,
+        'rmsle': rmsle,
+    }
