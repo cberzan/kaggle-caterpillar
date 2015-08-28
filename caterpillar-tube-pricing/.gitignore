@@ -1,9 +1,10 @@
+/ba
 /cellar/train_with_variable_and_fixed_costs.csv
 /data
 /ec2
-/folds
+/folds*
 /hyperopt
-/opt
+/opt-*
 /xgboost-0.40
 test_pred.csv
 train_pred.csv
