@@ -2,31 +2,16 @@ from soln.dataset import AllCategoricalsFeaturizer
 from soln.dataset import featurize_and_to_numpy
 from soln.dataset import generate_xv_splits
 from soln.dataset import get_augmented_train_and_test_set
+from soln.layers import layer1_get_indices
+from soln.layers import layer2_get_indices
 
 import numpy as np
 import os
 
 
-def layer1_get_indices(X):
-    return np.ones(len(X), dtype=bool)
-
-
-common_brackets = [
-    (1, 2, 5, 10, 25, 50, 100, 250),
-    (1, 6, 20),
-    (1, 2, 3, 5, 10, 20),
-    (1, 2, 5, 10, 25, 50, 100),
-    (5, 19, 20),
-]
-
-
-def layer2_get_indices(X):
-    return ~X.bracketing_pattern.isin(common_brackets)
-
-
 if __name__ == "__main__":
-    # get_indices = layer1_get_indices
-    get_indices = layer2_get_indices
+    get_indices = layer1_get_indices
+    # get_indices = layer2_get_indices
 
     print "Loading augmented dataset..."
     aug_train_set, aug_test_set = get_augmented_train_and_test_set()

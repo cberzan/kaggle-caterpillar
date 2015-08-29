@@ -86,7 +86,7 @@ def count_components(aug_set, component_info_df):
     return df
 
 
-def train_model(params, get_indices, featurizer, X_train, y_train):
+def get_layer(params, get_indices, featurizer, X_train, y_train):
     # Select subset of train set according to get_indices.
     train_is = get_indices(X_train)
     X_train = X_train[train_is].reset_index(drop=True)
@@ -99,41 +99,66 @@ def train_model(params, get_indices, featurizer, X_train, y_train):
     y_train_np = y_train.values
     xgtrain = xgb.DMatrix(X_train_np, label=y_train_np)
 
-    # Train model.
-    params = params.copy()
-    num_rounds = params.pop('num_rounds')
-    model = xgb.train(params.items(), xgtrain, num_rounds)
-
     return {
         'train_is': train_is,
         'X_train': X_train,
         'X_train_feats': X_train_feats,
         'y_train': y_train,
-        'model': model,
+        'xgtrain': xgtrain,
     }
 
 
-def eval_model(model, get_indices, featurizer, X_eval, y_eval):
+def train_model(params, get_indices, featurizer, X_train, y_train):
+    layer = get_layer(params, get_indices, featurizer, X_train, y_train)
+
+    # Train model.
+    params = params.copy()
+    num_rounds = params.pop('num_rounds')
+    layer['model'] = xgb.train(params.items(), layer['xgtrain'], num_rounds)
+
+    return layer
+
+
+def load_model_from_disk(
+        params, get_indices, featurizer, X_train, y_train, filename):
+    layer = get_layer(params, get_indices, featurizer, X_train, y_train)
+
+    # Load model.
+    layer['model'] = xgb.Booster()
+    layer['model'].load_model(filename)
+
+    return layer
+
+
+def get_predictions(model, get_indices, featurizer, X_eval):
     # Select subset of eval set according to get_indices.
     eval_is = get_indices(X_eval)
     X_eval = X_eval[eval_is].reset_index(drop=True)
-    y_eval = y_eval[eval_is].reset_index(drop=True)
 
     # Featurize and convert to DMatrix.
     X_eval_feats = featurizer.transform(X_eval)
     X_eval_np = X_eval_feats.astype(np.float).values
-    y_eval_np = y_eval.values
-    xgeval = xgb.DMatrix(X_eval_np, label=y_eval_np)
+    xgeval = xgb.DMatrix(X_eval_np)
 
-    # Get predictions and compute RMSLE.
+    # Get predictions.
     y_eval_pred = model.predict(xgeval)
-    rmsle = np.sqrt(mean_squared_error(y_eval_np, y_eval_pred))
 
     return {
         'eval_is': eval_is,
         'X_eval': X_eval,
         'X_eval_feats': X_eval_feats,
-        'y_eval': y_eval,
         'y_eval_pred': y_eval_pred,
-        'rmsle': rmsle,
     }
+
+
+def eval_model(model, get_indices, featurizer, X_eval, y_eval):
+    results = get_predictions(model, get_indices, featurizer, X_eval)
+
+    # Select subset of y_eval according to get_indices.
+    results['y_eval'] = y_eval[results['eval_is']].reset_index(drop=True)
+
+    # Compute RMSLE.
+    results['rmsle'] = np.sqrt(mean_squared_error(
+        results['y_eval'].values, results['y_eval_pred']))
+
+    return results
