@@ -8,7 +8,7 @@ def base_get_indices(X):
 base_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 10000,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
@@ -25,7 +25,7 @@ def supplier66_get_indices(X):
 supplier66_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 2000,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
@@ -42,7 +42,7 @@ def supplier41_get_indices(X):
 supplier41_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 2000,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
@@ -59,7 +59,7 @@ def supplier72_get_indices(X):
 supplier72_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 700,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
@@ -76,7 +76,7 @@ def supplier54_get_indices(X):
 supplier54_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 5000,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
@@ -93,7 +93,7 @@ def supplier26_get_indices(X):
 supplier26_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 10000,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
@@ -110,7 +110,7 @@ def supplier13_get_indices(X):
 supplier13_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 10000,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
@@ -127,7 +127,7 @@ def supplier58_get_indices(X):
 supplier58_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 10000,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
@@ -144,7 +144,7 @@ def supplier64_get_indices(X):
 supplier64_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 10000,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
@@ -161,7 +161,7 @@ def supplier62_get_indices(X):
 supplier62_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 10000,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
@@ -186,7 +186,7 @@ def uncommon_suppliers_1_get_indices(X):
 uncommon_suppliers_1_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 10000,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
@@ -214,7 +214,7 @@ def uncommon_suppliers_2_get_indices(X):
 uncommon_suppliers_2_params = {
     'objective': 'reg:linear',
     'silent': 1,
-    'num_rounds': 1000,
+    'num_rounds': 10000,
     'gamma': 0.0,
     'eta': 0.02,
     'max_depth': 8,
