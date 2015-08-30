@@ -14,11 +14,19 @@ def get_expert_path(expert_name, fold_id):
     return os.path.join('experts', expert_name, str(fold_id))
 
 
-def train_and_save_expert(expert_name, aug_train_set):
+def train_and_save_expert(expert_name, aug_train_set, folds=True):
     get_indices = getattr(expert_params, expert_name + '_get_indices')
     params = getattr(expert_params, expert_name + '_params')
+
+    if folds:
+        folds_gen = enumerate(generate_xv_splits(aug_train_set))
+    else:
+        X_train = aug_train_set.copy(deep=False)
+        y_train = X_train.pop('log_cost')
+        folds_gen = [('all', (X_train, y_train, None, None))]
+
     print "Training {}...".format(expert_name)
-    for fold_id, split in enumerate(generate_xv_splits(aug_train_set)):
+    for fold_id, split in folds_gen:
         print "fold {}...".format(fold_id)
         path = get_expert_path(expert_name, fold_id)
         if os.path.exists(path):
