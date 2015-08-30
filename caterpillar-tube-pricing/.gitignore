@@ -3,6 +3,7 @@
 /data
 /ec2
 /experts
+/experts-1k
 /folds*
 /hyperopt
 /opt-*
