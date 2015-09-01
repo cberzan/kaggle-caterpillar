@@ -1,15 +1,19 @@
 # Kaggle Caterpillar Tube Pricing Challenge
 
 This repo contains my solution to the [Caterpillar Tube
-Pricing](https://www.kaggle.com/c/caterpillar-tube-pricing) Kaggle challenge,
+Pricing](https://www.kaggle.com/c/caterpillar-tube-pricing) Kaggle competition,
 as well as all the exploration code that I produced along the way. I finished
 with a score of 0.211679 on the private leaderboard, ranking #31 out of 1323
-participating teams (top 3%).
+participating teams (top 3%), or #13 among individual participants.
 
 The main solution code is in `soln/`, and the exploratory IPython notebooks are
 in `exploration/`. My final model was a bagged ensemble of xgboost tree models,
 as detailed under "Bagging experiment" below. The rest of this file describes
-other ideas that I have tried for this challenge.
+my approach to the competition, and other ideas that I've tried but that did
+not make it into the final model. I am assuming familiarity with the
+[competition setup](https://www.kaggle.com/c/caterpillar-tube-pricing), [error
+metric](https://www.kaggle.com/c/caterpillar-tube-pricing/details/evaluation),
+and [data](https://www.kaggle.com/c/caterpillar-tube-pricing/data).
 
 
 ## Cross-validation approach
@@ -128,17 +132,240 @@ ranges for the parameters I thought would be most salient (see
 improvement in RMSLE, confirming that my parameter were already set pretty
 well.
 
+My workflow for searching parameters involved dumping the feature matrices for
+the K folds to disk (`soln/dump_xv_folds.py`), so that the script performing
+the search (`soln/optimize_params.py`) did not have to repeat the work of
+featurizing.
+
 
 ## Bracketing experiment
+
+In this experiment I tried to take advantage of the bracket-pricing structure
+present in the data. I noticed that a majority of the rows (58% of the training
+set and 58% of the test set) came from tubes with the bracketing pattern `(1,
+2, 5, 10, 25, 50, 100, 250)`, which I will call the well-behaved bracket. All
+of these tubes came from supplier `S-0066`. For all of the tubes in the
+well-behaved bracket, the prices can be explained by a simple linear model:
+
+    total_cost(tube) = fixed_cost(tube) + variable_cost(tube) * quantity(tube)
+
+where the `cost` column in the data is the per-unit cost, i.e.
+`total_cost(tube) / quantity(tube)`. This linear relation holds with an `r2 >
+0.9999` for all the tubes in the well-behaved bracket. For example, for tube
+`TA-00002`:
+
+![bracket pricing figure](/images/bracket.png?raw=true)
+
+(A similar linear relation holds for a few other bracket patterns, but not all
+of them.)
+
+Of course, the `fixed_cost` and `variable_cost` are unobserved, but they can be
+recovered from the training set by fitting a linear model, as illustrated
+above. What is more interesting is that the fixed costs for all the tubes in
+the well-behaved bracket cluster cleanly into four clusters:
+
+![fixed costs figure](/images/fixed_costs.png?raw=true)
+
+This suggests a two-step approach: First, classify a tube into one of the four
+fixed-cost clusters. Second, predict the variable cost for the tube. Finally,
+combine these two predictions to get the final cost for any quantity. The code
+for this is in `exploration/bracket_pricing_*.ipynb`.
+
+I built the fixed cost classifier using `xgboost` with a softmax objective
+function (four classes), and achieved an accuracy of about 94%. For the
+variable cost regressor, I again used `xgboost`, choosing to optimize the MSE
+of `log(variable_cost + 1)`. This objective function is an approximation, since
+when we predict the variable cost separately, we are no longer directly
+optimizing RMSLE on the original data. (Intuitively, the same amount of error
+in `variable_cost` will contribute a different amount of error to the final
+RMSLE, depending on the tube's `fixed_cost`.)
+
+Using this combined model, I achieved a small improvement in RMSLE for the
+well-behaved bracket, compared to my original `scikit-learn` model (which did
+not model bracketing separately). However, the improvement vanished when I
+compared against a tuned `xgboost` model with 10K trees. Thus, despite all this
+interesting structure in the data, simple boosted trees still did better than
+my combined modeling approach.
 
 
 ## Component clustering experiment
 
+In this experiment I tried to tie together the features from similar
+components. Of the 2047 known components, many occur in only one or two tubes.
+Even more alarmingly, hundreds of components occur in test set tubes but not in
+train set tubes, and vice versa:
 
-## Expert-ensemble experiment
+<table class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>test_seen_count</th>
+      <th>0..0</th>
+      <th>1..1</th>
+      <th>2..5</th>
+      <th>5..10</th>
+      <th>10..20</th>
+      <th>20..50</th>
+      <th>50..100</th>
+      <th>100..inf</th>
+    </tr>
+    <tr>
+      <th>train_seen_count</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0..0</th>
+      <td>346</td>
+      <td>399</td>
+      <td>81</td>
+      <td>2</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>1..1</th>
+      <td>407</td>
+      <td>140</td>
+      <td>83</td>
+      <td>9</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>2..5</th>
+      <td>111</td>
+      <td>94</td>
+      <td>112</td>
+      <td>38</td>
+      <td>2</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>5..10</th>
+      <td>2</td>
+      <td>5</td>
+      <td>43</td>
+      <td>37</td>
+      <td>8</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>10..20</th>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>13</td>
+      <td>41</td>
+      <td>2</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>20..50</th>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>9</td>
+      <td>23</td>
+      <td>1</td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>50..100</th>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>3</td>
+      <td>6</td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>100..inf</th>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>30</td>
+    </tr>
+  </tbody>
+</table>
+
+I reasoned that tying similar components together could alleviate this sparsity
+problem. I focused my investigation on components in the `comp_straight.csv`
+group, which was one of the worst offenders with regards to sparsity. The code
+for this is in `exploration/components.ipynb` and
+`exploration/straight_cluster.ipynb`. I tried three different ways to tie
+components together:
+
+- K-means clustering;
+- Agglomerative clustering, followed by extracting flat clusters;
+- Explicitly mapping uncommon `component_id`s to their nearest neighbor that is
+  sufficiently common.
+
+For each of these, I tried using the original component features + the tied
+component features, or only the tied component features. Despite reducing
+sparsity, these techniques did not give me a significant improvement in RMSLE.
+
+
+## Expert ensemble experiment
+
+Early on in the competition, I noticed that I could get slightly better RMSLE
+by training separate models on subsets of the training set. For example, if I
+trained a model on all tubes from supplier 72, it would be better at predicting
+prices from the same supplier, than the model that was trained on data from all
+suppliers. I call such a model an "expert", since it specializes on a specific
+subset of the training set.
+
+As a first experiment, I trained a base model on everything, and an expert
+model on all tubes with uncommon brackets (i.e., all tubes with a
+`bracketing_pattern` other than `(1, 2, 5, 10, 25, 50, 100, 250)`, `(1, 6,
+20)`, `(1, 2, 3, 5, 10, 20)`, `(1, 2, 5, 10, 25, 50, 100)`, or `(5, 19, 20)`).
+At prediction time I used the base model or the expert model, depending on
+whether the instance had a common or uncommon `bracketing_pattern`. This gave
+me an improvement of about 0.0006 in RMSLE, both in my cross validation and on
+the public leaderboard.
+
+As a second experiment, I trained a base model on everything, and a separate
+expert model for each of the five most common suppliers (66, 41, 72, 54, 26).
+For each of these expert models, I used cross-validation to determine whether
+the expert model did better than the base model. Including only the experts
+that beat the base model, I ended up with experts for suppliers 41, 72, and 54.
+This gave me a small boost in cross-validation RMSLE, but the variance was
+high, and my public score was worse than the base model. (As it turns out, my
+private score improved, but there was no way to know this until the competition
+was over. In any case, the uncommon-brackets expert gave an improvement that
+was more robust than the supplier-specific experts.)
 
 
 ## Bagging experiment
 
-
-## Hyperopt workflow
+As a final experiment, I checked whether I could improve my score using
+bagging. After trying a few different options, I settled on training models on
+9 bags, where I obtained each bag by sampling 90% of `tube_assembly_id`s in the
+training set, without replacement. (This is not the same as taking 90% of rows;
+see the discussion about cross-validation earlier.) I then averaged the
+predictions given by the 9 models to get the final prediction. (Taking the
+median worked slightly worse.) This simple technique gave me a boost of 0.0008
+in RMSLE over the base model with 10K trees.
