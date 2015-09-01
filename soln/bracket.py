@@ -1,3 +1,7 @@
+"""
+Tools for bracketing experiment (see README).
+"""
+
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import pandas as pd

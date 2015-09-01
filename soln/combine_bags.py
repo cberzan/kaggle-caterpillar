@@ -1,3 +1,7 @@
+"""
+Average predictions from the models trained on individual bags.
+"""
+
 import numpy as np
 import os
 import pandas as pd

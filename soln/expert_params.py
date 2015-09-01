@@ -1,3 +1,7 @@
+"""
+Parameters for the experts used in the expert-ensemble experiment (see README).
+"""
+
 import numpy as np
 
 

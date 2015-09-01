@@ -1,3 +1,7 @@
+"""
+Final prediction script for the expert-ensemble model.
+"""
+
 from sklearn.metrics import mean_squared_error
 from time import time
 import numpy as np

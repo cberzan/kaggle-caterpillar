@@ -1,3 +1,7 @@
+"""
+Train a single per-bag model for the bagging experiment.
+"""
+
 from sklearn.metrics import mean_squared_error
 from time import time
 import numpy as np

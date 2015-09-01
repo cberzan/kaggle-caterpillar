@@ -1,3 +1,7 @@
+"""
+Tools for loading, featurizing, and fold-splitting the dataset.
+"""
+
 from collections import Counter
 from datetime import datetime
 from sklearn.cross_validation import StratifiedKFold

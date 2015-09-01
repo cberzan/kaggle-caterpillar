@@ -1,3 +1,7 @@
+"""
+Misc stuff used here and there in the exploration notebooks.
+"""
+
 from collections import Counter
 from collections import defaultdict
 from sklearn import tree

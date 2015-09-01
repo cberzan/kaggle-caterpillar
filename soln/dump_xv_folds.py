@@ -1,17 +1,21 @@
+"""
+Featurize the dataset and dump the fold matrices to disk.
+
+Useful for searching for the optimal params; see `optimize_params.py`.
+"""
+
+from soln import expert_params
 from soln.dataset import AllCategoricalsFeaturizer
 from soln.dataset import featurize_and_to_numpy
 from soln.dataset import generate_xv_splits
 from soln.dataset import get_augmented_train_and_test_set
-from soln.layers import layer1_get_indices
-from soln.layers import layer2_get_indices
 
 import numpy as np
 import os
 
 
 if __name__ == "__main__":
-    get_indices = layer1_get_indices
-    # get_indices = layer2_get_indices
+    get_indices = expert_params.base_get_indices
 
     print "Loading augmented dataset..."
     aug_train_set, aug_test_set = get_augmented_train_and_test_set()

@@ -1,3 +1,10 @@
+"""
+Script to find optimal params using hyperopt.
+
+To avoid re-doing the featurizing work, this uses the folds dumped to disk by
+`dump_xv_folds.py`.
+"""
+
 from datetime import datetime
 from sklearn.metrics import mean_squared_error
 from time import time

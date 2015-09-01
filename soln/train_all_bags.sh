@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Script to train all per-bag models for the bagging experiment.
+
 set -e
 
 mkdir bags
