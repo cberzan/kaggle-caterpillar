@@ -44,13 +44,16 @@ def load_raw_components():
         group_dfs[group_name] = pd.read_csv(
             os.path.join(base_path, 'comp_' + group_name + '.csv'))
 
-    cluster_group_names = [
-        'straight', 'elbow',
-    ]
-    cluster_dfs = {}
-    for group_name in cluster_group_names:
-        cluster_dfs[group_name] = pd.read_csv(
-            os.path.join(base_path, '..', '..', 'clu_' + group_name + '.csv'))
+    cluster_dfs = None
+
+    # # Component clustering experiment:
+    # cluster_group_names = [
+    #     'straight', 'elbow',
+    # ]
+    # cluster_dfs = {}
+    # for group_name in cluster_group_names:
+    #     cluster_dfs[group_name] = pd.read_csv(
+    #         os.path.join(base_path, '..', '..', 'clu_' + group_name + '.csv'))
 
     return comp_types, group_dfs, cluster_dfs
 
@@ -113,10 +116,12 @@ def get_component_info_df(comp_types, group_dfs, cluster_dfs):
     for group_name, group_df in group_dfs.iteritems():
         group_df['component_group_id'] = group_name
         df = df.append(group_df)
-    all_clusters_df = pd.DataFrame()
-    for group_name, cluster_df in cluster_dfs.iteritems():
-        all_clusters_df = all_clusters_df.append(cluster_df)
-    df = df.merge(all_clusters_df, how='left', on='component_id')
+
+    # # Component clustering experiment:
+    # all_clusters_df = pd.DataFrame()
+    # for group_name, cluster_df in cluster_dfs.iteritems():
+    #     all_clusters_df = all_clusters_df.append(cluster_df)
+    # df = df.merge(all_clusters_df, how='left', on='component_id')
 
     # Concatenate the values in these columns into lists.
     list_feats = {
